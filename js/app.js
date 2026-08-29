@@ -1,4 +1,6 @@
+// ===== CONFIGURATION =====
 const API_URL = 'https://script.google.com/macros/s/AKfycbzRZJiGmNfu3ZLLirLQoLF8B9mmyBhb4FT8V5EUYy_pvZbUqx8vfsKDS5rslmDik-p0OQ/exec';
+const MENTOR_PASSWORD = 'iquanta2026'; // 🔐 Change this to your password
 
 // Fixed list of 4 assigned students for this mentor
 const STUDENTS = [
@@ -44,20 +46,11 @@ function handleRoute() {
         document.getElementById('booking-page').classList.remove('hidden');
         loadBookingPage();
     } else if (route === '/dashboard') {
-        const DASHBOARD_PASSWORD = 'iquanta2026';
-        const entered = sessionStorage.getItem('mentor_auth');
-        if (entered !== DASHBOARD_PASSWORD) {
-            const pwd = prompt('🔒 Enter Mentor Password:');
-            if (pwd !== DASHBOARD_PASSWORD) {
-                alert('Incorrect password!');
-                window.location.hash = '#/book';
-                return;
-            }
-            sessionStorage.setItem('mentor_auth', DASHBOARD_PASSWORD);
-        }
+        if (!isMentorAuthenticated()) { showPasswordModal(() => { document.getElementById('dashboard-page').classList.remove('hidden'); loadDashboard(); }); return; }
         document.getElementById('dashboard-page').classList.remove('hidden');
         loadDashboard();
     } else if (route === '/planner') {
+        if (!isMentorAuthenticated()) { showPasswordModal(() => { document.getElementById('planner-page').classList.remove('hidden'); initPlannerForm(); }); return; }
         document.getElementById('planner-page').classList.remove('hidden');
         initPlannerForm();
     }
@@ -503,6 +496,56 @@ function copyPlanToClipboard() {
     });
 }
 
+
+// ===== PASSWORD PROTECTION =====
+function isMentorAuthenticated() {
+    return sessionStorage.getItem('mentor_auth') === 'true';
+}
+
+function showPasswordModal(onSuccess) {
+    // Create modal if not exists
+    let modal = document.getElementById('password-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'password-modal';
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-content glass-card" style="max-width:380px;text-align:center">
+                <div style="font-size:2.5rem;margin-bottom:1rem">🔐</div>
+                <h2 style="margin-bottom:0.5rem">Mentor Access Only</h2>
+                <p style="color:var(--text-muted);margin-bottom:1.5rem">Enter your password to continue</p>
+                <input type="password" id="pwd-input" class="glass-input" placeholder="Enter password" style="text-align:center;font-size:1.1rem;letter-spacing:2px">
+                <p id="pwd-error" style="color:var(--danger);margin-top:0.5rem;display:none">Incorrect password. Try again.</p>
+                <div style="display:flex;gap:1rem;margin-top:1.5rem">
+                    <button class="btn btn-outline" style="flex:1" onclick="document.getElementById('password-modal').classList.add('hidden');window.location.hash='/book'">Cancel</button>
+                    <button class="btn btn-primary" style="flex:1" id="pwd-submit">Enter</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    modal.classList.remove('hidden');
+    const input = document.getElementById('pwd-input');
+    const error = document.getElementById('pwd-error');
+    input.value = '';
+    error.style.display = 'none';
+    setTimeout(() => input.focus(), 100);
+
+    const submit = () => {
+        if (input.value === MENTOR_PASSWORD) {
+            sessionStorage.setItem('mentor_auth', 'true');
+            modal.classList.add('hidden');
+            onSuccess();
+        } else {
+            error.style.display = 'block';
+            input.value = '';
+            input.focus();
+        }
+    };
+
+    document.getElementById('pwd-submit').onclick = submit;
+    input.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
+}
 
 // ===== UTILITIES & EVENT LISTENERS =====
 
