@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IQuanta Mentorship Portal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎓</text></svg>">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="glass-nav">
+        <div class="nav-brand">
+            <span class="brand-icon">✨</span>
+            <span class="brand-text">IQuanta Mentorship</span>
+        </div>
+        <div class="nav-links">
+            <a href="#/book" class="nav-link" data-route="/book">Book Session</a>
+            <a href="#/dashboard" class="nav-link" data-route="/dashboard">Dashboard</a>
+            <a href="#/planner" class="nav-link" data-route="/planner">Study Planner</a>
+        </div>
+        <!-- Mobile Menu Toggle -->
+        <button class="mobile-menu-btn">☰</button>
+    </nav>
+
+    <!-- Main Content Container -->
+    <main id="app-container">
+        
+        <!-- Page: Student Booking (#/book) -->
+        <section id="booking-page" class="page-section active">
+            <div class="page-header text-center">
+                <h1>Book Your Mentorship Session</h1>
+                <p class="subtitle">Select an available 15-minute time slot for your next review</p>
+            </div>
+            
+            <!-- Student Selection (For authentication simulation) -->
+            <div class="student-auth-panel glass-card">
+                <h3>Who are you?</h3>
+                <div class="form-group">
+                    <label for="student-select">Select your profile</label>
+                    <select id="student-select" class="glass-input">
+                        <!-- Populated via JS -->
+                    </select>
+                </div>
+            </div>
+
+            <!-- Available Slots Grid -->
+            <div id="slots-container" class="mt-4">
+                <!-- Grouped by date, populated via JS -->
+            </div>
+            
+            <!-- Booking Success State -->
+            <div id="booking-success" class="hidden text-center glass-card">
+                <div class="success-animation">
+                    <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                        <circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/>
+                        <path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+                    </svg>
+                </div>
+                <h2>Booking Confirmed!</h2>
+                <p>Your session has been scheduled. Check your email for the Zoom link.</p>
+                <button class="btn btn-primary mt-3" onclick="window.location.reload()">Book Another</button>
+            </div>
+        </section>
+
+        <!-- Page: Mentor Dashboard (#/dashboard) -->
+        <section id="dashboard-page" class="page-section hidden">
+            <div class="page-header">
+                <h1>Mentor Dashboard</h1>
+                <p class="subtitle">Manage slots, sessions, and students</p>
+            </div>
+
+            <!-- Stats Row -->
+            <div class="stats-row">
+                <div class="stat-card glass-card">
+                    <div class="stat-title">Total Sessions</div>
+                    <div class="stat-value" id="stat-total">0</div>
+                </div>
+                <div class="stat-card glass-card">
+                    <div class="stat-title">Upcoming</div>
+                    <div class="stat-value text-accent" id="stat-upcoming">0</div>
+                </div>
+                <div class="stat-card glass-card">
+                    <div class="stat-title">This Month</div>
+                    <div class="stat-value" id="stat-month">0</div>
+                </div>
+                <div class="stat-card glass-card">
+                    <div class="stat-title">Active Students</div>
+                    <div class="stat-value" id="stat-students">4</div>
+                </div>
+            </div>
+
+            <div class="dashboard-grid mt-4">
+                <!-- Manage Slots -->
+                <div class="dashboard-panel glass-card">
+                    <h2>Manage Availability</h2>
+                    <form id="add-slot-form" class="mt-3">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Date</label>
+                                <input type="date" id="slot-date" required class="glass-input">
+                            </div>
+                            <div class="form-group">
+                                <label>Start Time</label>
+                                <input type="time" id="slot-time" required class="glass-input">
+                            </div>
+                            <div class="form-group align-bottom">
+                                <button type="submit" class="btn btn-primary w-100">Add Slot</button>
+                            </div>
+                        </div>
+                    </form>
+                    
+                    <h3 class="mt-4">Upcoming Slots</h3>
+                    <div class="table-responsive">
+                        <table class="glass-table" id="slots-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Time</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Bookings -->
+                <div class="dashboard-panel glass-card">
+                    <div class="d-flex justify-between align-center">
+                        <h2>Bookings</h2>
+                        <select id="booking-filter" class="glass-input slim">
+                            <option value="upcoming">Upcoming</option>
+                            <option value="completed">Completed</option>
+                            <option value="all">All</option>
+                        </select>
+                    </div>
+                    
+                    <div class="bookings-list mt-3" id="dashboard-bookings-list">
+                        <!-- Populated via JS -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Page: Study Planner (#/planner) -->
+        <section id="planner-page" class="page-section hidden">
+            <div class="page-header">
+                <h1>10-Day Study Plan Generator</h1>
+                <p class="subtitle">Generate custom IPMAT schedules based on student progress</p>
+            </div>
+
+            <div class="planner-grid">
+                <!-- Planner Form -->
+                <div class="planner-form-panel glass-card">
+                    <form id="study-planner-form">
+                        <div class="form-group">
+                            <label>Student</label>
+                            <select id="plan-student" required class="glass-input">
+                                <!-- Populated via JS -->
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Start Date</label>
+                            <input type="date" id="plan-start-date" required class="glass-input">
+                        </div>
+                        
+                        <div class="form-section">
+                            <h4>Class Schedule (Days with Classes)</h4>
+                            <div class="checkbox-grid" id="class-days-grid">
+                                <!-- Generated by JS -->
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h4>Current Status</h4>
+                            <div class="toggle-group">
+                                <label class="toggle-label">
+                                    <input type="checkbox" id="has-backlog" class="glass-toggle">
+                                    <span>Has Backlog Lectures?</span>
+                                </label>
+                                <input type="number" id="backlog-count" class="glass-input hidden mt-2" placeholder="How many?">
+                            </div>
+                            <div class="toggle-group mt-2">
+                                <label class="toggle-label">
+                                    <input type="checkbox" id="pending-assignments" class="glass-toggle">
+                                    <span>Pending Assignments?</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h4>Mock Test</h4>
+                            <div class="toggle-group">
+                                <label class="toggle-label">
+                                    <input type="checkbox" id="has-mock" class="glass-toggle">
+                                    <span>Schedule Mock Test?</span>
+                                </label>
+                                <select id="mock-day" class="glass-input hidden mt-2">
+                                    <option value="5">Day 5</option>
+                                    <option value="7">Day 7</option>
+                                    <option value="10">Day 10</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h4>Focus Area (Day 1)</h4>
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="start-subject" value="LR" checked>
+                                    <span>Start with LR</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="start-subject" value="VA">
+                                    <span>Start with VA</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-group mt-3">
+                            <label>Special Instructions</label>
+                            <textarea id="special-instructions" class="glass-input" rows="3" placeholder="E.g., Focus more on QA arithmetic..."></textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100 mt-4">Generate Plan</button>
+                    </form>
+                </div>
+
+                <!-- Plan Output -->
+                <div class="plan-output-panel glass-card">
+                    <div id="plan-placeholder" class="text-center empty-state">
+                        <div class="icon">📅</div>
+                        <h3>No Plan Generated Yet</h3>
+                        <p>Fill out the form and click Generate to see the 10-day schedule.</p>
+                    </div>
+                    <div id="plan-result" class="hidden">
+                        <div class="d-flex justify-between align-center mb-3">
+                            <h3 id="plan-title">10-Day Plan</h3>
+                            <div class="action-buttons">
+                                <button class="btn btn-outline btn-sm" id="btn-copy-plan">Copy Text</button>
+                            </div>
+                        </div>
+                        <div class="calendar-view" id="calendar-container">
+                            <!-- Populated via JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modals -->
+    <!-- Booking Confirm Modal -->
+    <div id="modal-confirm-booking" class="modal-overlay hidden">
+        <div class="modal-content glass-card">
+            <h2>Confirm Booking</h2>
+            <div class="booking-details mt-3 mb-4">
+                <p><strong>Student:</strong> <span id="confirm-student-name"></span></p>
+                <p><strong>Date:</strong> <span id="confirm-date"></span></p>
+                <p><strong>Time:</strong> <span id="confirm-time"></span></p>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-outline modal-close">Cancel</button>
+                <button class="btn btn-primary" id="btn-confirm-booking">Confirm & Book</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Log Session Modal -->
+    <div id="modal-log-session" class="modal-overlay hidden">
+        <div class="modal-content glass-card large">
+            <h2>Log Mentorship Session</h2>
+            <form id="log-session-form" class="mt-3">
+                <input type="hidden" id="log-booking-id">
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Student</label>
+                        <input type="text" id="log-student-name" class="glass-input" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Session Date</label>
+                        <input type="text" id="log-date" class="glass-input" readonly>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Mentorship Notes</label>
+                    <textarea id="log-notes" required class="glass-input" rows="4" placeholder="Discussed progress, pain points..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Recording Link (Zoom)</label>
+                    <input type="url" id="log-recording" class="glass-input" placeholder="https://zoom.us/rec/...">
+                </div>
+
+                <div class="form-group">
+                    <label>Study Plan Given</label>
+                    <textarea id="log-plan" class="glass-input" rows="3" placeholder="Paste plan or reference generated plan..."></textarea>
+                </div>
+
+                <div class="modal-actions mt-4">
+                    <button type="button" class="btn btn-outline modal-close">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Session Log</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
