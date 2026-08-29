@@ -44,6 +44,17 @@ function handleRoute() {
         document.getElementById('booking-page').classList.remove('hidden');
         loadBookingPage();
     } else if (route === '/dashboard') {
+        const DASHBOARD_PASSWORD = 'iquanta2026';
+        const entered = sessionStorage.getItem('mentor_auth');
+        if (entered !== DASHBOARD_PASSWORD) {
+            const pwd = prompt('🔒 Enter Mentor Password:');
+            if (pwd !== DASHBOARD_PASSWORD) {
+                alert('Incorrect password!');
+                window.location.hash = '#/book';
+                return;
+            }
+            sessionStorage.setItem('mentor_auth', DASHBOARD_PASSWORD);
+        }
         document.getElementById('dashboard-page').classList.remove('hidden');
         loadDashboard();
     } else if (route === '/planner') {
