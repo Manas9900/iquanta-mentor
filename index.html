@@ -179,19 +179,13 @@
                         </div>
 
                         <div class="form-section">
-                            <h4>Current Status</h4>
+                            <h4>Backlog Lectures</h4>
                             <div class="toggle-group">
                                 <label class="toggle-label">
                                     <input type="checkbox" id="has-backlog" class="glass-toggle">
                                     <span>Has Backlog Lectures?</span>
                                 </label>
-                                <input type="number" id="backlog-count" class="glass-input hidden mt-2" placeholder="How many?">
-                            </div>
-                            <div class="toggle-group mt-2">
-                                <label class="toggle-label">
-                                    <input type="checkbox" id="pending-assignments" class="glass-toggle">
-                                    <span>Pending Assignments?</span>
-                                </label>
+                                <input type="number" id="backlog-count" class="glass-input hidden mt-2" placeholder="How many lectures pending?">
                             </div>
                         </div>
 
@@ -203,24 +197,65 @@
                                     <span>Schedule Mock Test?</span>
                                 </label>
                                 <select id="mock-day" class="glass-input hidden mt-2">
-                                    <option value="5">Day 5</option>
+                                    <option value="2">Day 2</option>
+                                    <option value="3">Day 3</option>
+                                    <option value="4">Day 4</option>
+                                    <option value="5" selected>Day 5</option>
+                                    <option value="6">Day 6</option>
                                     <option value="7">Day 7</option>
+                                    <option value="8">Day 8</option>
+                                    <option value="9">Day 9</option>
                                     <option value="10">Day 10</option>
+                                    <option value="14">Every 2 Weeks (Next Cycle)</option>
                                 </select>
                             </div>
                         </div>
 
                         <div class="form-section">
-                            <h4>Focus Area (Day 1)</h4>
-                            <div class="radio-group">
-                                <label class="radio-label">
-                                    <input type="radio" name="start-subject" value="LR" checked>
-                                    <span>Start with LR</span>
-                                </label>
-                                <label class="radio-label">
-                                    <input type="radio" name="start-subject" value="VA">
-                                    <span>Start with VA</span>
-                                </label>
+                            <h4>Subject Frequency</h4>
+                            <div class="freq-grid">
+                                <div class="freq-row">
+                                    <span class="freq-label tag tag-qa">QA</span>
+                                    <label class="radio-label"><input type="radio" name="qa-freq" value="daily" checked> Daily</label>
+                                    <label class="radio-label"><input type="radio" name="qa-freq" value="alternate"> Alternate</label>
+                                </div>
+                                <div class="freq-row">
+                                    <span class="freq-label tag tag-lr">LR</span>
+                                    <label class="radio-label"><input type="radio" name="lr-freq" value="daily"> Daily</label>
+                                    <label class="radio-label"><input type="radio" name="lr-freq" value="alternate" checked> Alternate</label>
+                                </div>
+                                <div class="freq-row">
+                                    <span class="freq-label tag tag-va">VA</span>
+                                    <label class="radio-label"><input type="radio" name="va-freq" value="daily"> Daily</label>
+                                    <label class="radio-label"><input type="radio" name="va-freq" value="alternate" checked> Alternate</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h4>VA Reading Material</h4>
+                            <div class="check-row">
+                                <label class="toggle-label"><input type="checkbox" name="reading" value="Newspaper" checked class="glass-toggle"> <span>Newspaper</span></label>
+                                <label class="toggle-label"><input type="checkbox" name="reading" value="Editorial" checked class="glass-toggle"> <span>Editorial</span></label>
+                                <label class="toggle-label"><input type="checkbox" name="reading" value="Aeon Essay" checked class="glass-toggle"> <span>Aeon Essay</span></label>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h4>Pending Assignments</h4>
+                            <div class="check-row">
+                                <label class="toggle-label"><input type="checkbox" name="pending-assign" value="QA" class="glass-toggle"> <span class="tag tag-qa">QA</span></label>
+                                <label class="toggle-label"><input type="checkbox" name="pending-assign" value="LR" class="glass-toggle"> <span class="tag tag-lr">LR</span></label>
+                                <label class="toggle-label"><input type="checkbox" name="pending-assign" value="VA" class="glass-toggle"> <span class="tag tag-va">VA</span></label>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h4>Pending Module Questions / Chapters</h4>
+                            <div class="check-row">
+                                <label class="toggle-label"><input type="checkbox" name="pending-module" value="QA" class="glass-toggle"> <span class="tag tag-qa">QA</span></label>
+                                <label class="toggle-label"><input type="checkbox" name="pending-module" value="LR" class="glass-toggle"> <span class="tag tag-lr">LR</span></label>
+                                <label class="toggle-label"><input type="checkbox" name="pending-module" value="VA" class="glass-toggle"> <span class="tag tag-va">VA</span></label>
                             </div>
                         </div>
 

@@ -384,18 +384,26 @@ function handlePlanGenerate(e) {
     e.preventDefault();
     
     const studentIdx = document.getElementById('plan-student').value;
-    const startDate = new Date(document.getElementById('plan-start-date').value);
+    const startDate = new Date(document.getElementById('plan-start-date').value + 'T00:00:00');
     const classDays = Array.from(document.querySelectorAll('input[name="class-day"]:checked')).map(cb => parseInt(cb.value));
     const hasBacklog = document.getElementById('has-backlog').checked;
-    const backlogCount = document.getElementById('backlog-count').value;
-    const pendingAss = document.getElementById('pending-assignments').checked;
+    const backlogCount = parseInt(document.getElementById('backlog-count').value) || 1;
     const hasMock = document.getElementById('has-mock').checked;
     const mockDay = parseInt(document.getElementById('mock-day').value);
-    const startSubject = document.querySelector('input[name="start-subject"]:checked').value;
-    
-    // Client-side generation logic
+
+    const qaFreq = document.querySelector('input[name="qa-freq"]:checked').value;
+    const lrFreq = document.querySelector('input[name="lr-freq"]:checked').value;
+    const vaFreq = document.querySelector('input[name="va-freq"]:checked').value;
+
+    const readingMaterials = Array.from(document.querySelectorAll('input[name="reading"]:checked')).map(cb => cb.value);
+    const pendingAssign = Array.from(document.querySelectorAll('input[name="pending-assign"]:checked')).map(cb => cb.value);
+    const pendingModule = Array.from(document.querySelectorAll('input[name="pending-module"]:checked')).map(cb => cb.value);
+    const specialInstructions = document.getElementById('special-instructions').value;
+
     const plan = generatePlanLogic({
-        startDate, classDays, hasBacklog, backlogCount, pendingAss, hasMock, mockDay, startSubject
+        startDate, classDays, hasBacklog, backlogCount,
+        hasMock, mockDay, qaFreq, lrFreq, vaFreq,
+        readingMaterials, pendingAssign, pendingModule, specialInstructions
     });
     
     renderPlan(plan);
@@ -403,28 +411,25 @@ function handlePlanGenerate(e) {
 
 function generatePlanLogic(opts) {
     const plan = [];
-    let currentLrVa = opts.startSubject || 'LR';
+    let qaCount = 0, lrCount = 0, vaCount = 0;
 
     for (let day = 1; day <= 10; day++) {
         const currentDate = new Date(opts.startDate);
         currentDate.setDate(currentDate.getDate() + (day - 1));
-        
-        let type = 'Class Day';
-        let tasks = [];
+        const tasks = [];
+        let type = 'Self Study';
 
+        // Mock day overrides everything
         if (opts.hasMock && day === opts.mockDay) {
             type = 'Mock Test';
-            tasks.push({ text: 'Attempt full mock test', tag: 'tag-mock' });
-            tasks.push({ text: 'Thoroughly analyze the mock — note weak areas', tag: 'tag-mock' });
-            tasks.push({ text: 'Light reading only (newspaper)', tag: 'tag-va' });
-        } else if (opts.classDays.includes(day)) {
+            tasks.push({ text: 'Attempt Full Mock Test', tag: 'tag-mock' });
+            tasks.push({ text: 'In-depth Mock Analysis — note weak areas in QA, LR, VA', tag: 'tag-mock' });
+            if (opts.readingMaterials && opts.readingMaterials.length > 0) {
+                tasks.push({ text: 'Light reading: ' + opts.readingMaterials.join(' + '), tag: 'tag-va' });
+            }
+
+        } else if (opts.classDays && opts.classDays.includes(day)) {
             type = 'Class Day';
-            tasks.push({ text: 'Do 20-30 questions from current topic', tag: 'tag-qa' });
-            tasks.push({ text: 'Make short notes right after lecture', tag: 'tag-lr' }); // using lr class for QA/LR
-            tasks.push({ text: 'Read newspaper + editorial + 1 Aeon essay', tag: 'tag-va' });
-            tasks.push({ text: 'Alternating practice', tag: `tag-${currentLrVa.toLowerCase()}` });
-            tasks.push({ text: 'Solve chapterwise assignments from portal', tag: 'tag-qa' });
-            
             currentLrVa = currentLrVa === 'LR' ? 'VA' : 'LR';
         } else {
             type = 'Gap Day';
