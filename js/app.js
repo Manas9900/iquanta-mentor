@@ -604,6 +604,44 @@ function copyPlanToClipboard() {
     });
 }
 
+function exportPlanToPdf() {
+    if (!window.currentGeneratedPlan) return;
+    window.print();
+}
+
+async function emailPlanToStudent() {
+    if (!window.currentGeneratedPlan) return;
+    
+    const studentIdx = document.getElementById('plan-student')?.value;
+    if (studentIdx === "" || studentIdx === undefined) {
+        showToast('Please select a student from the dropdown first to send an email.', 'error');
+        return;
+    }
+    
+    const student = STUDENTS[studentIdx];
+    if (!student || !student.email) {
+        showToast('Student email not found.', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('btn-email-plan');
+    btn.disabled = true; btn.textContent = 'Sending...';
+
+    const res = await apiPost({
+        action: 'generatePlan',
+        studentName: student.name,
+        options: { studentName: student.name }
+    });
+
+    btn.disabled = false; btn.textContent = '✉️ Email to Student';
+
+    if (res.success) {
+        showToast(`Plan successfully emailed to ${student.name} (${student.email})!`, 'success');
+    } else {
+        showToast('Email sending failed.', 'error');
+    }
+}
+
 
 // ===== PASSWORD PROTECTION =====
 function isMentorAuthenticated() {
@@ -744,6 +782,8 @@ function setupEventListeners() {
         });
     });
     document.getElementById('btn-copy-plan')?.addEventListener('click', copyPlanToClipboard);
+    document.getElementById('btn-pdf-plan')?.addEventListener('click', exportPlanToPdf);
+    document.getElementById('btn-email-plan')?.addEventListener('click', emailPlanToStudent);
 }
 
 function populateStudentDropdowns() {
