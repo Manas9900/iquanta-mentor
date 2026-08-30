@@ -243,11 +243,12 @@ function renderManageSlots() {
     const tbody = document.querySelector('#slots-table tbody');
     tbody.innerHTML = '';
     
-    const futureSlots = state.slots
-        .filter(s => new Date(s.date) >= new Date(new Date().setHours(0,0,0,0)))
-        .sort((a,b) => new Date(a.date) - new Date(b.date) || a.startTime.localeCompare(b.startTime));
+    // Show all slots so past or current slots can be deleted or reviewed
+    const sortedSlots = state.slots
+        .slice()
+        .sort((a,b) => new Date(b.date) - new Date(a.date) || a.startTime.localeCompare(b.startTime));
 
-    futureSlots.forEach(slot => {
+    sortedSlots.forEach(slot => {
         const isBooked = !!slot.bookedBy;
         const statusBadge = isBooked ? 
             `<span class="badge badge-upcoming">Booked</span>` : 
