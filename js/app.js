@@ -109,7 +109,7 @@ async function loadBookingPage() {
     const res = await apiGet('getSlots');
     if (res.success) {
         state.slots = res.slots || [];
-        renderSlots(state.slots.filter(s => !s.bookedBy)); // Only show available
+        renderSlots(state.slots); // Render all slots (both available & booked)
     }
 }
 
@@ -137,12 +137,23 @@ function renderSlots(slots) {
             <div class="date-group">
                 <div class="date-header">${formatDate(date)}</div>
                 <div class="slots-grid">
-                    ${grouped[date].sort((a,b) => a.startTime.localeCompare(b.startTime)).map(slot => `
-                        <div class="slot-card" onclick="openBookingConfirm('${slot.slotId}')">
-                            <div class="time">${formatTime(slot.startTime)}</div>
-                            <div class="duration">15 mins</div>
-                        </div>
-                    `).join('')}
+                    ${grouped[date].sort((a,b) => a.startTime.localeCompare(b.startTime)).map(slot => {
+                        const isBooked = slot.status === 'booked' || !!slot.bookedBy;
+                        if (isBooked) {
+                            return `
+                                <div class="slot-card slot-booked" style="opacity:0.5; cursor:not-allowed; background:rgba(255,255,255,0.05); border-color:transparent;">
+                                    <div class="time" style="text-decoration:line-through;">${formatTime(slot.startTime)}</div>
+                                    <div class="duration" style="color:var(--danger); font-weight:600;">Booked</div>
+                                </div>
+                            `;
+                        }
+                        return `
+                            <div class="slot-card" onclick="openBookingConfirm('${slot.slotId}')">
+                                <div class="time">${formatTime(slot.startTime)}</div>
+                                <div class="duration">15 mins</div>
+                            </div>
+                        `;
+                    }).join('')}
                 </div>
             </div>
         `;
