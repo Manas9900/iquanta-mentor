@@ -464,9 +464,12 @@ function generatePlanLogic(opts) {
         const tasks = [];
         let type = 'Self Study';
 
-        // Special Instructions on Day 1
-        if (day === 1 && opts.specialInstructions) {
-            tasks.push({ text: `📌 Note: ${opts.specialInstructions}`, tag: 'tag-general' });
+        // Special Instructions on Day 1 (Refined & Structured)
+        if (day === 1 && opts.specialInstructions && opts.specialInstructions.trim() !== '') {
+            const refinedNotes = refineSpecialInstructions(opts.specialInstructions);
+            refinedNotes.forEach(note => {
+                tasks.push({ text: `📌 ${note}`, tag: 'tag-general' });
+            });
         }
 
         // Mock day
@@ -524,9 +527,26 @@ function generatePlanLogic(opts) {
             currentLrVa = currentLrVa === 'LR' ? 'VA' : 'LR';
         }
 
-        plan.push({ day, date: formatDate(currentDate.toISOString().split('T')[0]), type, tasks });
+    plan.push({ day, date: formatDate(currentDate.toISOString().split('T')[0]), type, tasks });
     }
     return plan;
+}
+
+function refineSpecialInstructions(rawText) {
+    if (!rawText) return [];
+    // Split by newlines, periods, commas, or semicolons if long
+    let lines = rawText.split(/\n+/).map(s => s.trim()).filter(Boolean);
+    
+    // If it's a single block of text, try splitting by sentences
+    if (lines.length === 1 && lines[0].length > 40) {
+        lines = lines[0].split(/(?<=[.?!])\s+/).map(s => s.trim()).filter(Boolean);
+    }
+
+    return lines.map(line => {
+        // Capitalize first letter and format cleanly
+        let clean = line.replace(/^[•\-\*\d\.\)\s]+/, ''); // remove bullet symbols if user typed them
+        return clean.charAt(0).toUpperCase() + clean.slice(1);
+    });
 }
 
 function renderPlan(plan) {
@@ -563,15 +583,24 @@ function renderPlan(plan) {
 
 function copyPlanToClipboard() {
     if (!window.currentGeneratedPlan) return;
-    let text = "🌟 *Your 10-Day IPMAT Study Plan* 🌟\n\n";
+    
+    let text = "🎯 *YOUR 10-DAY IPMAT STUDY PLAN* 🎯\n";
+    text += "───────────────────────────────\n\n";
+
     window.currentGeneratedPlan.forEach(d => {
-        text += `*Day ${d.day} (${d.date}) - ${d.type}*\n`;
-        d.tasks.forEach(t => text += `- ${t.text}\n`);
+        const typeEmoji = d.type === 'Mock Test' ? '📝' : (d.type === 'Class Day' ? '🎓' : '📖');
+        text += `📅 *Day ${d.day} (${d.date})* — ${typeEmoji} _${d.type}_\n`;
+        d.tasks.forEach(t => {
+            text += `  • ${t.text}\n`;
+        });
         text += '\n';
     });
-    
+
+    text += "───────────────────────────────\n";
+    text += "💪 *Stay consistent & reach out if you have doubts!*";
+
     navigator.clipboard.writeText(text).then(() => {
-        showToast('Plan copied to clipboard!', 'success');
+        showToast('Formatted plan copied for WhatsApp!', 'success');
     });
 }
 
