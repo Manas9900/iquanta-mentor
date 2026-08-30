@@ -1,6 +1,7 @@
 // ===== CONFIGURATION =====
 const API_URL = 'https://script.google.com/macros/s/AKfycbzRZJiGmNfu3ZLLirLQoLF8B9mmyBhb4FT8V5EUYy_pvZbUqx8vfsKDS5rslmDik-p0OQ/exec';
-const MENTOR_PASSWORD = 'iquanta2026'; // 🔐 Change this to your password
+const MENTOR_PASSWORD = 'iquanta2026'; // 🔐 Password for Mentor (Dashboard & Planner)
+const STUDENT_PASSWORD = 'studentiquanta'; // 🔐 Password for Students (Booking Page)
 
 // Fixed list of 4 assigned students for this mentor
 const STUDENTS = [
@@ -43,6 +44,7 @@ function handleRoute() {
     document.querySelectorAll('.page-section').forEach(sec => sec.classList.add('hidden'));
     
     if (route === '/book') {
+        if (!isStudentAuthenticated()) { showStudentPasswordModal(() => { document.getElementById('booking-page').classList.remove('hidden'); loadBookingPage(); }); return; }
         document.getElementById('booking-page').classList.remove('hidden');
         loadBookingPage();
     } else if (route === '/dashboard') {
@@ -535,6 +537,53 @@ function copyPlanToClipboard() {
 // ===== PASSWORD PROTECTION =====
 function isMentorAuthenticated() {
     return sessionStorage.getItem('mentor_auth') === 'true';
+}
+
+function isStudentAuthenticated() {
+    return sessionStorage.getItem('student_auth') === 'true';
+}
+
+function showStudentPasswordModal(onSuccess) {
+    let modal = document.getElementById('student-password-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'student-password-modal';
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-content glass-card" style="max-width:380px;text-align:center">
+                <div style="font-size:2.5rem;margin-bottom:1rem">🔒</div>
+                <h2 style="margin-bottom:0.5rem">Student Access</h2>
+                <p style="color:var(--text-muted);margin-bottom:1.5rem">Enter access code to book sessions</p>
+                <input type="password" id="student-pwd-input" class="glass-input" placeholder="Enter access password" style="text-align:center;font-size:1.1rem;letter-spacing:2px">
+                <p id="student-pwd-error" style="color:var(--danger);margin-top:0.5rem;display:none">Incorrect password. Try again.</p>
+                <div style="display:flex;gap:1rem;margin-top:1.5rem">
+                    <button class="btn btn-primary w-100" id="student-pwd-submit">Unlock Access</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    modal.classList.remove('hidden');
+    const input = document.getElementById('student-pwd-input');
+    const error = document.getElementById('student-pwd-error');
+    input.value = '';
+    error.style.display = 'none';
+    setTimeout(() => input.focus(), 100);
+
+    const submit = () => {
+        if (input.value === STUDENT_PASSWORD) {
+            sessionStorage.setItem('student_auth', 'true');
+            modal.classList.add('hidden');
+            onSuccess();
+        } else {
+            error.style.display = 'block';
+            input.value = '';
+            input.focus();
+        }
+    };
+
+    document.getElementById('student-pwd-submit').onclick = submit;
+    input.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
 }
 
 function showPasswordModal(onSuccess) {
