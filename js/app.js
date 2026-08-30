@@ -378,15 +378,25 @@ async function handleLogSession(e) {
 
 // ===== STUDY PLANNER =====
 function initPlannerForm() {
+    // Populate student dropdown in planner if empty
+    const select = document.getElementById('plan-student');
+    if (select && select.children.length === 0) {
+        select.innerHTML = '<option value="">-- Select Student (Optional) --</option>';
+        STUDENTS.forEach((s, idx) => {
+            select.insertAdjacentHTML('beforeend', `<option value="${idx}">${s.name}</option>`);
+        });
+    }
+
     // Set default start date to today
     const dateInput = document.getElementById('plan-start-date');
-    if (!dateInput.value) dateInput.valueAsDate = new Date();
+    if (dateInput && !dateInput.value) dateInput.valueAsDate = new Date();
 }
 
 function handlePlanGenerate(e) {
     e.preventDefault();
 
-    const startDate = new Date(document.getElementById('plan-start-date').value + 'T00:00:00');
+    const startDateInput = document.getElementById('plan-start-date').value;
+    const startDate = startDateInput ? new Date(startDateInput + 'T00:00:00') : new Date();
 
     // Map selected weekdays to actual day numbers 1-10
     const selectedWeekdays = Array.from(document.querySelectorAll('input[name="class-weekday"]:checked')).map(cb => parseInt(cb.value));
@@ -397,32 +407,40 @@ function handlePlanGenerate(e) {
         if (selectedWeekdays.includes(d.getDay())) classDays.push(i + 1);
     }
 
-    const hasBacklog = document.getElementById('has-backlog').checked;
-    const backlogCount = parseInt(document.getElementById('backlog-count').value) || 1;
-    const hasMock = document.getElementById('has-mock').checked;
-    const mockDay = parseInt(document.getElementById('mock-day').value);
-    const qaFreq = document.querySelector('input[name="qa-freq"]:checked').value;
-    const lrFreq = document.querySelector('input[name="lr-freq"]:checked').value;
-    const vaFreq = document.querySelector('input[name="va-freq"]:checked').value;
-    const readingMaterials = Array.from(document.querySelectorAll('input[name="reading"]:checked')).map(cb => cb.value);
-    const specialInstructions = document.getElementById('special-instructions').value;
+    const hasBacklog = document.getElementById('has-backlog')?.checked || false;
+    const backlogCount = parseInt(document.getElementById('backlog-count')?.value) || 0;
+    const hasMock = document.getElementById('has-mock')?.checked || false;
+    const mockDay = parseInt(document.getElementById('mock-day')?.value) || 5;
 
-    // Pending assignments with counts
+    const qaFreqElem = document.querySelector('input[name="qa-freq"]:checked');
+    const lrFreqElem = document.querySelector('input[name="lr-freq"]:checked');
+    const vaFreqElem = document.querySelector('input[name="va-freq"]:checked');
+
+    const qaFreq = qaFreqElem ? qaFreqElem.value : 'daily';
+    const lrFreq = lrFreqElem ? lrFreqElem.value : 'alternate';
+    const vaFreq = vaFreqElem ? vaFreqElem.value : 'alternate';
+
+    const readingMaterials = Array.from(document.querySelectorAll('input[name="reading"]:checked')).map(cb => cb.value);
+    const specialInstructions = document.getElementById('special-instructions')?.value || '';
+
+    // Pending assignments with counts (ONLY if checked)
     const pendingAssign = [];
     ['QA','LR','VA'].forEach(sub => {
         const cb = document.getElementById(`assign-${sub.toLowerCase()}-cb`);
         if (cb && cb.checked) {
-            const count = parseInt(document.getElementById(`assign-${sub.toLowerCase()}-count`).value) || 1;
+            const countVal = document.getElementById(`assign-${sub.toLowerCase()}-count`)?.value;
+            const count = parseInt(countVal) || 0;
             pendingAssign.push({ subject: sub, count });
         }
     });
 
-    // Pending module questions with counts
+    // Pending module questions with counts (ONLY if checked)
     const pendingModule = [];
     ['QA','LR','VA'].forEach(sub => {
         const cb = document.getElementById(`module-${sub.toLowerCase()}-cb`);
         if (cb && cb.checked) {
-            const count = parseInt(document.getElementById(`module-${sub.toLowerCase()}-count`).value) || 1;
+            const countVal = document.getElementById(`module-${sub.toLowerCase()}-count`)?.value;
+            const count = parseInt(countVal) || 0;
             pendingModule.push({ subject: sub, count });
         }
     });
