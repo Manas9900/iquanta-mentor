@@ -360,21 +360,42 @@ async function handleLogSession(e) {
     const btn = e.target.querySelector('button[type="submit"]');
     btn.disabled = true; btn.textContent = 'Saving...';
 
+    // Retrieve planner data saved for this student
+    const studentName = document.getElementById('log-student-name').value;
+    const savedPlan = getPlanDataForStudent(studentName);
+
     const res = await apiPost({
         action: 'logSession',
         bookingId: document.getElementById('log-booking-id').value,
         mentorshipNotes: document.getElementById('log-notes').value,
-        studyPlan: document.getElementById('log-plan').value,
-        recordingLink: document.getElementById('log-recording').value
+        studyPlan: savedPlan ? savedPlan.planText : document.getElementById('log-plan').value,
+        recordingLink: document.getElementById('log-recording').value,
+        // Planner-derived fields for smart tracker fill
+        backlogCount:        savedPlan ? (savedPlan.backlogCount || 0)    : 0,
+        pendingQA:           savedPlan ? (savedPlan.pendingQA   || 0)    : 0,
+        pendingVARC:         savedPlan ? (savedPlan.pendingVARC || 0)    : 0,
+        pendingLRDI:         savedPlan ? (savedPlan.pendingLRDI || 0)    : 0,
+        specialInstructions: savedPlan ? (savedPlan.specialInstructions || '') : ''
     });
 
     btn.disabled = false; btn.textContent = 'Save Session Log';
-    
+
     if (res.success) {
-        showToast('Session logged successfully', 'success');
+        showToast('Session logged successfully! Tracker sheet updated.', 'success');
         closeModal('modal-log-session');
         loadDashboard();
     }
+}
+
+// ===== PLAN DATA STORAGE (connects Planner → Log Session) =====
+function savePlanDataForStudent(studentName, data) {
+    try { localStorage.setItem('planData_' + studentName, JSON.stringify(data)); } catch(e) {}
+}
+function getPlanDataForStudent(studentName) {
+    try {
+        const s = localStorage.getItem('planData_' + studentName);
+        return s ? JSON.parse(s) : null;
+    } catch(e) { return null; }
 }
 
 // ===== STUDY PLANNER =====
@@ -422,6 +443,7 @@ function handlePlanGenerate(e) {
     const vaFreq = vaFreqElem ? vaFreqElem.value : 'alternate';
 
     const readingMaterials = Array.from(document.querySelectorAll('input[name="reading"]:checked')).map(cb => cb.value);
+    // NOTE: specialInstructions is kept INTERNAL — not shown in plan, used only for tracker sheet
     const specialInstructions = document.getElementById('special-instructions')?.value || '';
 
     // Pending assignments with counts (ONLY if checked)
@@ -449,10 +471,39 @@ function handlePlanGenerate(e) {
     const plan = generatePlanLogic({
         startDate, classDays, hasBacklog, backlogCount,
         hasMock, mockDay, qaFreq, lrFreq, vaFreq,
-        readingMaterials, pendingAssign, pendingModule, specialInstructions
+        readingMaterials, pendingAssign, pendingModule,
+        specialInstructions // passed internally but NOT shown in plan
     });
 
     renderPlan(plan);
+
+    // Save planner data to localStorage so Log Session can pick it up
+    const planText = buildPlanText(plan);
+    const pendingQA   = pendingAssign.find(a => a.subject === 'QA')?.count   || 0;
+    const pendingVARC = pendingAssign.find(a => a.subject === 'VA')?.count   || 0;
+    const pendingLRDI = pendingAssign.find(a => a.subject === 'LR')?.count   || 0;
+
+    const selectedStudentIdx = document.getElementById('plan-student')?.value;
+    if (selectedStudentIdx !== '' && selectedStudentIdx !== undefined) {
+        const studentName = STUDENTS[selectedStudentIdx]?.name;
+        if (studentName) {
+            savePlanDataForStudent(studentName, {
+                planText, backlogCount, pendingQA, pendingVARC, pendingLRDI, specialInstructions
+            });
+            showToast(`Plan data saved for ${studentName} — will auto-fill tracker when you log the session.`, 'info');
+        }
+    }
+}
+
+// Build plain-text plan for tracker sheet storage
+function buildPlanText(plan) {
+    let text = '10-Day Study Plan:\n\n';
+    plan.forEach(d => {
+        text += `Day ${d.day} (${d.date}) — ${d.type}\n`;
+        d.tasks.forEach(t => { text += `  • ${t.text}\n`; });
+        text += '\n';
+    });
+    return text;
 }
 
 function generatePlanLogic(opts) {
@@ -465,13 +516,8 @@ function generatePlanLogic(opts) {
         const tasks = [];
         let type = 'Self Study';
 
-        // Special Instructions on Day 1 (Refined & Structured)
-        if (day === 1 && opts.specialInstructions && opts.specialInstructions.trim() !== '') {
-            const refinedNotes = refineSpecialInstructions(opts.specialInstructions);
-            refinedNotes.forEach(note => {
-                tasks.push({ text: `📌 ${note}`, tag: 'tag-general' });
-            });
-        }
+        // NOTE: Special Instructions are INTERNAL ONLY — not shown in the plan
+        // They are stored in localStorage and used to auto-fill the tracker sheet
 
         // Mock day
         if (opts.hasMock && day === opts.mockDay) {
