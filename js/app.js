@@ -291,14 +291,16 @@ function renderBookings(filter = 'all') {
     container.innerHTML = '';
     
     let filtered = state.bookings;
-    if (filter === 'upcoming') filtered = state.bookings.filter(b => b.status === 'Upcoming');
-    if (filter === 'completed') filtered = state.bookings.filter(b => b.status === 'Completed');
+    if (filter === 'upcoming') filtered = state.bookings.filter(b => b.status?.toLowerCase() === 'upcoming');
+    if (filter === 'completed') filtered = state.bookings.filter(b => b.status?.toLowerCase() === 'completed');
     
     // Sort: upcoming first by date, then completed by date desc
     filtered.sort((a, b) => {
-        if(a.status === 'Upcoming' && b.status === 'Completed') return -1;
-        if(a.status === 'Completed' && b.status === 'Upcoming') return 1;
-        if(a.status === 'Upcoming') return new Date(a.date) - new Date(b.date);
+        const aUp = a.status?.toLowerCase() === 'upcoming';
+        const bUp = b.status?.toLowerCase() === 'upcoming';
+        if(aUp && !bUp) return -1;
+        if(!aUp && bUp) return 1;
+        if(aUp) return new Date(a.date) - new Date(b.date);
         return new Date(b.date) - new Date(a.date);
     });
 
@@ -318,7 +320,7 @@ function renderBookings(filter = 'all') {
                 </div>
                 <div class="booking-actions text-right">
                     <div class="mb-2"><span class="badge ${isUpcoming ? 'badge-upcoming' : 'badge-completed'}">${b.status}</span></div>
-                    ${isUpcoming ? `<button class="btn btn-primary btn-sm" onclick="openLogSession('${b.bookingId}')">Log Session</button>` : ''}
+                    ${b.status?.toLowerCase() === 'upcoming' ? `<button class="btn btn-primary btn-sm" onclick="openLogSession('${b.bookingId}')">Log Session</button>` : '<span style="font-size:0.8rem;color:var(--text-muted)">✓ Completed</span>'}
                 </div>
             </div>
         `);
