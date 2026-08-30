@@ -610,16 +610,30 @@ function showToast(message, type = 'info') {
 
 function formatDate(dateStr) {
     if(!dateStr) return '';
+    // Handle Google Sheets Date objects serialized as ISO strings
     const d = new Date(dateStr);
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    if (isNaN(d.getTime())) return dateStr;
+    // Adjust for timezone offset so date doesn't shift
+    const adjusted = new Date(d.getTime() + d.getTimezoneOffset() * 60000);
+    return adjusted.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function formatTime(timeStr) {
     if(!timeStr) return '';
-    const [h, m] = timeStr.split(':');
-    const d = new Date();
-    d.setHours(h, m);
-    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    // Handle HH:MM string (from time input)
+    if (typeof timeStr === 'string' && /^\d{1,2}:\d{2}$/.test(timeStr)) {
+        const [h, m] = timeStr.split(':');
+        const d = new Date();
+        d.setHours(parseInt(h), parseInt(m), 0);
+        return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    }
+    // Handle Google Sheets time stored as full Date/ISO string
+    const d = new Date(timeStr);
+    if (!isNaN(d.getTime())) {
+        // Google Sheets times are relative to 1899-12-30, extract HH:mm from IST
+        return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' });
+    }
+    return timeStr;
 }
 
 // ===== MOCK API FOR DEV =====
