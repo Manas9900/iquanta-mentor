@@ -456,7 +456,7 @@ function handlePlanGenerate(e) {
 
 function generatePlanLogic(opts) {
     const plan = [];
-    let qaCount = 0, lrCount = 0, vaCount = 0;
+    let currentLrVa = 'LR';
 
     for (let day = 1; day <= 10; day++) {
         const currentDate = new Date(opts.startDate);
@@ -464,7 +464,12 @@ function generatePlanLogic(opts) {
         const tasks = [];
         let type = 'Self Study';
 
-        // Mock day overrides everything
+        // Special Instructions on Day 1
+        if (day === 1 && opts.specialInstructions) {
+            tasks.push({ text: `📌 Note: ${opts.specialInstructions}`, tag: 'tag-general' });
+        }
+
+        // Mock day
         if (opts.hasMock && day === opts.mockDay) {
             type = 'Mock Test';
             tasks.push({ text: 'Attempt Full Mock Test', tag: 'tag-mock' });
@@ -472,42 +477,50 @@ function generatePlanLogic(opts) {
             if (opts.readingMaterials && opts.readingMaterials.length > 0) {
                 tasks.push({ text: 'Light reading: ' + opts.readingMaterials.join(' + '), tag: 'tag-va' });
             }
+        } else if (opts.classDays && opts.classDays.includes(day)) {
+            type = 'Class Day';
+            tasks.push({ text: 'Attend scheduled live class & complete class notes', tag: 'tag-qa' });
+            if (opts.readingMaterials && opts.readingMaterials.length > 0) {
+                tasks.push({ text: 'Daily reading: ' + opts.readingMaterials.join(' + '), tag: 'tag-va' });
+            }
+        } else {
+            type = 'Gap Day';
+
+            // Backlog
+            if (opts.hasBacklog && opts.backlogCount > 0) {
+                tasks.push({ text: `Cover backlog lectures (${opts.backlogCount} pending)`, tag: 'tag-general' });
+            }
 
             // Pending module questions
             if (opts.pendingModule && opts.pendingModule.length > 0) {
                 opts.pendingModule.forEach(m => {
-                    tasks.push({ text: `Finish pending ${m.subject} module questions (${m.count} pending)`, tag: `tag-${m.subject.toLowerCase()}` });
+                    if (m.count > 0) tasks.push({ text: `Finish pending ${m.subject} module questions (${m.count} questions)`, tag: `tag-${m.subject.toLowerCase()}` });
                 });
             }
 
             // Pending assignments
             if (opts.pendingAssign && opts.pendingAssign.length > 0) {
                 opts.pendingAssign.forEach(a => {
-                    tasks.push({ text: `Complete ${a.subject} chapterwise assignments (${a.count} pending)`, tag: `tag-${a.subject.toLowerCase()}` });
+                    if (a.count > 0) tasks.push({ text: `Complete ${a.subject} assignments (${a.count} pending)`, tag: `tag-${a.subject.toLowerCase()}` });
                 });
             }
 
-        } else if (opts.classDays && opts.classDays.includes(day)) {
-            type = 'Class Day';
-            currentLrVa = currentLrVa === 'LR' ? 'VA' : 'LR';
-        } else {
-            type = 'Gap Day';
-            if (opts.hasBacklog) {
-                tasks.push({ text: 'Complete backlog lectures if any', tag: 'tag-general' });
+            // Subject practice based on selected frequencies
+            if (opts.qaFreq === 'daily' || day % 2 === 1) {
+                tasks.push({ text: 'QA: Do 20-30 practice/revision questions', tag: 'tag-qa' });
             }
-            tasks.push({ text: 'Finish leftover questions from module', tag: 'tag-general' });
-            tasks.push({ text: `QA: Do 20-30 revision/practice questions`, tag: 'tag-qa' });
-            tasks.push({ text: 'Read newspaper + editorial + aeon essay', tag: 'tag-va' });
-            tasks.push({ text: 'Alternating practice', tag: `tag-${currentLrVa.toLowerCase()}` });
-            
-            if (opts.pendingAssign && opts.pendingAssign.length > 0) {
-                opts.pendingAssign.forEach(a => {
-                    tasks.push({ text: `Complete ${a.subject} chapterwise assignments (${a.count} pending)`, tag: `tag-${a.subject.toLowerCase()}` });
-                });
-            } else {
-                tasks.push({ text: 'Solve chapterwise assignments from portal', tag: 'tag-qa' });
+            if (opts.lrFreq === 'daily' || (opts.lrFreq === 'alternate' && currentLrVa === 'LR')) {
+                tasks.push({ text: 'LR: Solve sets & review weak concepts', tag: 'tag-lr' });
             }
-            
+            if (opts.vaFreq === 'daily' || (opts.vaFreq === 'alternate' && currentLrVa === 'VA')) {
+                tasks.push({ text: 'VA: Reading comprehension & sectional tests', tag: 'tag-va' });
+            }
+
+            // Reading materials
+            if (opts.readingMaterials && opts.readingMaterials.length > 0) {
+                tasks.push({ text: 'Daily reading: ' + opts.readingMaterials.join(' + '), tag: 'tag-va' });
+            }
+
             currentLrVa = currentLrVa === 'LR' ? 'VA' : 'LR';
         }
 
