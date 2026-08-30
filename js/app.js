@@ -363,49 +363,61 @@ async function handleLogSession(e) {
 
 // ===== STUDY PLANNER =====
 function initPlannerForm() {
-    // Generate class days checkboxes
-    const grid = document.getElementById('class-days-grid');
-    if (grid.children.length === 0) {
-        for(let i=1; i<=10; i++) {
-            grid.insertAdjacentHTML('beforeend', `
-                <label>
-                    <input type="checkbox" name="class-day" value="${i}" class="glass-toggle" ${[1,3,5,7,9].includes(i)?'checked':''}>
-                    Day ${i}
-                </label>
-            `);
-        }
-    }
-
     // Set default start date to today
-    document.getElementById('plan-start-date').valueAsDate = new Date();
+    const dateInput = document.getElementById('plan-start-date');
+    if (!dateInput.value) dateInput.valueAsDate = new Date();
 }
 
 function handlePlanGenerate(e) {
     e.preventDefault();
-    
-    const studentIdx = document.getElementById('plan-student').value;
+
     const startDate = new Date(document.getElementById('plan-start-date').value + 'T00:00:00');
-    const classDays = Array.from(document.querySelectorAll('input[name="class-day"]:checked')).map(cb => parseInt(cb.value));
+
+    // Map selected weekdays to actual day numbers 1-10
+    const selectedWeekdays = Array.from(document.querySelectorAll('input[name="class-weekday"]:checked')).map(cb => parseInt(cb.value));
+    const classDays = [];
+    for (let i = 0; i < 10; i++) {
+        const d = new Date(startDate);
+        d.setDate(d.getDate() + i);
+        if (selectedWeekdays.includes(d.getDay())) classDays.push(i + 1);
+    }
+
     const hasBacklog = document.getElementById('has-backlog').checked;
     const backlogCount = parseInt(document.getElementById('backlog-count').value) || 1;
     const hasMock = document.getElementById('has-mock').checked;
     const mockDay = parseInt(document.getElementById('mock-day').value);
-
     const qaFreq = document.querySelector('input[name="qa-freq"]:checked').value;
     const lrFreq = document.querySelector('input[name="lr-freq"]:checked').value;
     const vaFreq = document.querySelector('input[name="va-freq"]:checked').value;
-
     const readingMaterials = Array.from(document.querySelectorAll('input[name="reading"]:checked')).map(cb => cb.value);
-    const pendingAssign = Array.from(document.querySelectorAll('input[name="pending-assign"]:checked')).map(cb => cb.value);
-    const pendingModule = Array.from(document.querySelectorAll('input[name="pending-module"]:checked')).map(cb => cb.value);
     const specialInstructions = document.getElementById('special-instructions').value;
+
+    // Pending assignments with counts
+    const pendingAssign = [];
+    ['QA','LR','VA'].forEach(sub => {
+        const cb = document.getElementById(`assign-${sub.toLowerCase()}-cb`);
+        if (cb && cb.checked) {
+            const count = parseInt(document.getElementById(`assign-${sub.toLowerCase()}-count`).value) || 1;
+            pendingAssign.push({ subject: sub, count });
+        }
+    });
+
+    // Pending module questions with counts
+    const pendingModule = [];
+    ['QA','LR','VA'].forEach(sub => {
+        const cb = document.getElementById(`module-${sub.toLowerCase()}-cb`);
+        if (cb && cb.checked) {
+            const count = parseInt(document.getElementById(`module-${sub.toLowerCase()}-count`).value) || 1;
+            pendingModule.push({ subject: sub, count });
+        }
+    });
 
     const plan = generatePlanLogic({
         startDate, classDays, hasBacklog, backlogCount,
         hasMock, mockDay, qaFreq, lrFreq, vaFreq,
         readingMaterials, pendingAssign, pendingModule, specialInstructions
     });
-    
+
     renderPlan(plan);
 }
 
@@ -428,6 +440,20 @@ function generatePlanLogic(opts) {
                 tasks.push({ text: 'Light reading: ' + opts.readingMaterials.join(' + '), tag: 'tag-va' });
             }
 
+            // Pending module questions
+            if (opts.pendingModule && opts.pendingModule.length > 0) {
+                opts.pendingModule.forEach(m => {
+                    tasks.push({ text: `Finish pending ${m.subject} module questions (${m.count} pending)`, tag: `tag-${m.subject.toLowerCase()}` });
+                });
+            }
+
+            // Pending assignments
+            if (opts.pendingAssign && opts.pendingAssign.length > 0) {
+                opts.pendingAssign.forEach(a => {
+                    tasks.push({ text: `Complete ${a.subject} chapterwise assignments (${a.count} pending)`, tag: `tag-${a.subject.toLowerCase()}` });
+                });
+            }
+
         } else if (opts.classDays && opts.classDays.includes(day)) {
             type = 'Class Day';
             currentLrVa = currentLrVa === 'LR' ? 'VA' : 'LR';
@@ -437,12 +463,14 @@ function generatePlanLogic(opts) {
                 tasks.push({ text: 'Complete backlog lectures if any', tag: 'tag-general' });
             }
             tasks.push({ text: 'Finish leftover questions from module', tag: 'tag-general' });
-            tasks.push({ text: 'Do 20-30 questions (revision/practice)', tag: 'tag-qa' });
+            tasks.push({ text: `QA: Do 20-30 revision/practice questions`, tag: 'tag-qa' });
             tasks.push({ text: 'Read newspaper + editorial + aeon essay', tag: 'tag-va' });
             tasks.push({ text: 'Alternating practice', tag: `tag-${currentLrVa.toLowerCase()}` });
             
-            if (opts.pendingAss) {
-                tasks.push({ text: 'Complete pending chapterwise assignments', tag: 'tag-qa' });
+            if (opts.pendingAssign && opts.pendingAssign.length > 0) {
+                opts.pendingAssign.forEach(a => {
+                    tasks.push({ text: `Complete ${a.subject} chapterwise assignments (${a.count} pending)`, tag: `tag-${a.subject.toLowerCase()}` });
+                });
             } else {
                 tasks.push({ text: 'Solve chapterwise assignments from portal', tag: 'tag-qa' });
             }
@@ -583,6 +611,15 @@ function setupEventListeners() {
     });
     document.getElementById('has-mock')?.addEventListener('change', (e) => {
         document.getElementById('mock-day').classList.toggle('hidden', !e.target.checked);
+    });
+    // Show/hide count inputs for pending assignments
+    ['qa','lr','va'].forEach(sub => {
+        document.getElementById(`assign-${sub}-cb`)?.addEventListener('change', (e) => {
+            document.getElementById(`assign-${sub}-count`).classList.toggle('hidden', !e.target.checked);
+        });
+        document.getElementById(`module-${sub}-cb`)?.addEventListener('change', (e) => {
+            document.getElementById(`module-${sub}-count`).classList.toggle('hidden', !e.target.checked);
+        });
     });
     document.getElementById('btn-copy-plan')?.addEventListener('click', copyPlanToClipboard);
 }
