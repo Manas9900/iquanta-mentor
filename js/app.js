@@ -508,7 +508,69 @@ function buildPlanText(plan) {
 
 function generatePlanLogic(opts) {
     const plan = [];
-    let currentLrVa = 'LR';
+
+    // ── Pre-analysis: understand the full 10-day window ──────────────
+    const gapDays = [];
+    for (let d = 1; d <= 10; d++) {
+        const isMock  = opts.hasMock && d === opts.mockDay;
+        const isClass = opts.classDays && opts.classDays.includes(d);
+        if (!isMock && !isClass) gapDays.push(d);
+    }
+    const numGapDays = gapDays.length || 1;
+
+    // Parse special instructions for focus adjustments
+    const si = (opts.specialInstructions || '').toLowerCase();
+    const focusQA = si.includes('focus on qa') || si.includes('weak in qa') || si.includes('more qa') || si.includes('qa weak');
+    const focusLR = si.includes('focus on lr') || si.includes('weak in lr') || si.includes('more lr') || si.includes('lr weak');
+    const focusVA = si.includes('focus on va') || si.includes('weak in va') || si.includes('more va') || si.includes('va weak');
+
+    // Smart backlog distribution: spread evenly across ALL gap days
+    const backlogPerDay = {};
+    if (opts.hasBacklog && opts.backlogCount > 0) {
+        let remaining = opts.backlogCount;
+        for (let i = 0; i < gapDays.length && remaining > 0; i++) {
+            const lecturesThisDay = Math.ceil(remaining / (gapDays.length - i));
+            backlogPerDay[gapDays[i]] = lecturesThisDay;
+            remaining -= lecturesThisDay;
+        }
+    }
+
+    // Smart assignment distribution: spread across gap days proportionally
+    const assignPerDay = {};
+    if (opts.pendingAssign && opts.pendingAssign.length > 0) {
+        opts.pendingAssign.forEach(a => {
+            if (a.count <= 0) return;
+            const perDay = Math.ceil(a.count / numGapDays);
+            let rem = a.count;
+            gapDays.forEach(gd => {
+                if (rem <= 0) return;
+                const todayCount = Math.min(perDay, rem);
+                if (!assignPerDay[gd]) assignPerDay[gd] = [];
+                assignPerDay[gd].push({ subject: a.subject, count: todayCount });
+                rem -= todayCount;
+            });
+        });
+    }
+
+    // Smart module question distribution: spread across gap days
+    const modulePerDay = {};
+    if (opts.pendingModule && opts.pendingModule.length > 0) {
+        opts.pendingModule.forEach(m => {
+            if (m.count <= 0) return;
+            const perDay = Math.ceil(m.count / numGapDays);
+            let rem = m.count;
+            gapDays.forEach(gd => {
+                if (rem <= 0) return;
+                const todayCount = Math.min(perDay, rem);
+                if (!modulePerDay[gd]) modulePerDay[gd] = [];
+                modulePerDay[gd].push({ subject: m.subject, count: todayCount });
+                rem -= todayCount;
+            });
+        });
+    }
+
+    // ── Day-by-day plan generation ────────────────────────────────────
+    let lrVaToggle = 'LR';
 
     for (let day = 1; day <= 10; day++) {
         const currentDate = new Date(opts.startDate);
@@ -516,65 +578,97 @@ function generatePlanLogic(opts) {
         const tasks = [];
         let type = 'Self Study';
 
-        // NOTE: Special Instructions are INTERNAL ONLY — not shown in the plan
-        // They are stored in localStorage and used to auto-fill the tracker sheet
+        const isMock     = opts.hasMock && day === opts.mockDay;
+        const isPreMock  = opts.hasMock && day === opts.mockDay - 1 && day >= 1;
+        const isPostMock = opts.hasMock && day === opts.mockDay + 1 && day <= 10;
+        const isClass    = !isMock && opts.classDays && opts.classDays.includes(day);
 
-        // Mock day
-        if (opts.hasMock && day === opts.mockDay) {
-            type = 'Mock Test';
-            tasks.push({ text: 'Attempt Full Mock Test', tag: 'tag-mock' });
-            tasks.push({ text: 'In-depth Mock Analysis — note weak areas in QA, LR, VA', tag: 'tag-mock' });
-            if (opts.readingMaterials && opts.readingMaterials.length > 0) {
-                tasks.push({ text: 'Light reading: ' + opts.readingMaterials.join(' + '), tag: 'tag-va' });
-            }
-        } else if (opts.classDays && opts.classDays.includes(day)) {
-            type = 'Class Day';
-            tasks.push({ text: 'Attend scheduled live class & complete class notes', tag: 'tag-qa' });
-            if (opts.readingMaterials && opts.readingMaterials.length > 0) {
-                tasks.push({ text: 'Daily reading: ' + opts.readingMaterials.join(' + '), tag: 'tag-va' });
-            }
+        // ── MOCK DAY ──────────────────────────────────────────────────
+        if (isMock) {
+            type = 'Mock Test Day 🎯';
+            tasks.push({ text: 'Attempt full IPMAT mock under strict exam conditions — no interruptions', tag: 'tag-mock' });
+            tasks.push({ text: 'After mock: record your sectional scores (QA / LR / VA)', tag: 'tag-mock' });
+            tasks.push({ text: 'Identify top 3 weak areas from the mock result — write them down', tag: 'tag-mock' });
+            tasks.push({ text: 'Light reading only: ' + (opts.readingMaterials?.length ? opts.readingMaterials.join(' + ') : 'Newspaper'), tag: 'tag-va' });
+
+        // ── PRE-MOCK — Revision & Rest ────────────────────────────────
+        } else if (isPreMock) {
+            type = 'Pre-Mock Revision Day 📋';
+            tasks.push({ text: '⚠️ No new topics today — revision and consolidation only', tag: 'tag-general' });
+            tasks.push({ text: 'QA: Quick revision of all key formulas, shortcuts & trick methods', tag: 'tag-qa' });
+            tasks.push({ text: 'LR: Revisit 1-2 sets from your weakest LR type at full speed', tag: 'tag-lr' });
+            tasks.push({ text: 'VA: Read 1 RC passage + editorial — keep it light', tag: 'tag-va' });
+            tasks.push({ text: '🛌 Sleep on time tonight — 7-8 hours is essential before mock', tag: 'tag-general' });
+
+        // ── POST-MOCK — Deep Analysis Day ─────────────────────────────
+        } else if (isPostMock) {
+            type = 'Post-Mock Analysis Day 🔍';
+            tasks.push({ text: 'Go through every wrong answer in QA — identify: concept gap, silly mistake, or time issue', tag: 'tag-qa' });
+            tasks.push({ text: 'Go through every wrong LR question — identify set type weakness', tag: 'tag-lr' });
+            tasks.push({ text: 'Go through VA errors — RC strategy, vocab, or parajumble weakness?', tag: 'tag-va' });
+            tasks.push({ text: 'Note the weak chapters/topics from QA for next study cycle', tag: 'tag-qa' });
+            tasks.push({ text: 'Daily reading: ' + (opts.readingMaterials?.length ? opts.readingMaterials.join(' + ') : 'Newspaper'), tag: 'tag-va' });
+
+        // ── CLASS DAY ─────────────────────────────────────────────────
+        } else if (isClass) {
+            type = 'Class Day 🎓';
+            tasks.push({ text: 'Attend live iquanta class — active note-taking, mark doubts for later', tag: 'tag-qa' });
+            tasks.push({ text: 'After class (within 1-2 hours): revise notes while memory is fresh (15-20 mins)', tag: 'tag-qa' });
+            tasks.push({ text: 'QA: Solve 15-20 questions from today\'s class topic for immediate application', tag: 'tag-qa' });
+            if (focusLR) tasks.push({ text: 'LR: 1 quick set from weak LR type (focus area this cycle)', tag: 'tag-lr' });
+            if (focusVA) tasks.push({ text: 'VA: 1 RC passage (focus area this cycle)', tag: 'tag-va' });
+            tasks.push({ text: 'Daily reading: ' + (opts.readingMaterials?.length ? opts.readingMaterials.join(' + ') : 'Newspaper + Editorial') + ' (30 mins)', tag: 'tag-va' });
+
+        // ── GAP DAY — Full Self Study ─────────────────────────────────
         } else {
-            type = 'Gap Day';
+            type = 'Gap Day (Self Study) 📖';
 
-            // Backlog
-            if (opts.hasBacklog && opts.backlogCount > 0) {
-                tasks.push({ text: `Cover backlog lectures (${opts.backlogCount} pending)`, tag: 'tag-general' });
+            // Priority 1: Backlog lectures
+            if (backlogPerDay[day]) {
+                tasks.push({ text: `📌 Backlog: Watch ${backlogPerDay[day]} pending lecture(s) from iquanta portal — must complete`, tag: 'tag-general' });
             }
 
-            // Pending module questions
-            if (opts.pendingModule && opts.pendingModule.length > 0) {
-                opts.pendingModule.forEach(m => {
-                    if (m.count > 0) tasks.push({ text: `Finish pending ${m.subject} module questions (${m.count} questions)`, tag: `tag-${m.subject.toLowerCase()}` });
+            // Priority 2: Module questions for today
+            if (modulePerDay[day]) {
+                modulePerDay[day].forEach(m => {
+                    tasks.push({ text: `${m.subject}: Complete ${m.count} pending module question(s) from portal`, tag: `tag-${m.subject.toLowerCase()}` });
                 });
             }
 
-            // Pending assignments
-            if (opts.pendingAssign && opts.pendingAssign.length > 0) {
-                opts.pendingAssign.forEach(a => {
-                    if (a.count > 0) tasks.push({ text: `Complete ${a.subject} assignments (${a.count} pending)`, tag: `tag-${a.subject.toLowerCase()}` });
+            // Priority 3: Assignments for today
+            if (assignPerDay[day]) {
+                assignPerDay[day].forEach(a => {
+                    tasks.push({ text: `${a.subject}: Complete ${a.count} pending assignment question(s) from portal`, tag: `tag-${a.subject.toLowerCase()}` });
                 });
             }
 
-            // Subject practice based on selected frequencies
-            if (opts.qaFreq === 'daily' || day % 2 === 1) {
-                tasks.push({ text: 'QA: Do 20-30 practice/revision questions', tag: 'tag-qa' });
-            }
-            if (opts.lrFreq === 'daily' || (opts.lrFreq === 'alternate' && currentLrVa === 'LR')) {
-                tasks.push({ text: 'LR: Solve sets & review weak concepts', tag: 'tag-lr' });
-            }
-            if (opts.vaFreq === 'daily' || (opts.vaFreq === 'alternate' && currentLrVa === 'VA')) {
-                tasks.push({ text: 'VA: Reading comprehension & sectional tests', tag: 'tag-va' });
+            // QA Practice
+            const doQA = focusQA ? true : (opts.qaFreq === 'daily' || gapDays.indexOf(day) % 2 === 0);
+            if (doQA || opts.qaFreq === 'daily') {
+                const qCount = focusQA ? 35 : 25;
+                tasks.push({ text: `QA: Solve ${qCount} practice questions — focus on accuracy first, then speed`, tag: 'tag-qa' });
             }
 
-            // Reading materials
-            if (opts.readingMaterials && opts.readingMaterials.length > 0) {
-                tasks.push({ text: 'Daily reading: ' + opts.readingMaterials.join(' + '), tag: 'tag-va' });
+            // LR / VA (alternating, or daily if frequency set / focus)
+            const doLR = focusLR ? true : (opts.lrFreq === 'daily' || lrVaToggle === 'LR');
+            const doVA = focusVA ? true : (opts.vaFreq === 'daily' || lrVaToggle === 'VA');
+
+            if (doLR) {
+                tasks.push({ text: 'LR: Solve 1-2 full LR sets under timed conditions (max 15 mins/set)', tag: 'tag-lr' });
+            }
+            if (doVA) {
+                tasks.push({ text: 'VA: 1 RC passage (timed) + 5 parajumbles + 5 odd-one-out', tag: 'tag-va' });
             }
 
-            currentLrVa = currentLrVa === 'LR' ? 'VA' : 'LR';
+            // Daily reading — always included
+            if (opts.readingMaterials?.length > 0) {
+                tasks.push({ text: 'Daily reading: ' + opts.readingMaterials.join(' + ') + ' (30 mins minimum — builds VA vocabulary)', tag: 'tag-va' });
+            }
+
+            lrVaToggle = lrVaToggle === 'LR' ? 'VA' : 'LR';
         }
 
-    plan.push({ day, date: formatDate(currentDate.toISOString().split('T')[0]), type, tasks });
+        plan.push({ day, date: formatDate(currentDate.toISOString().split('T')[0]), type, tasks });
     }
     return plan;
 }
