@@ -312,10 +312,12 @@ select.glass-input option { background: var(--bg-dark); }
     display: flex; align-items: flex-start; gap: 0.5rem;
 }
 .task-list li:last-child { border-bottom: none; }
-.tag { font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 4px; background: rgba(255,255,255,0.1); }
-.tag-qa { background: rgba(108, 92, 231, 0.2); color: #a29bfe; }
-.tag-va { background: rgba(0, 206, 201, 0.2); color: #81ecec; }
-.tag-lr { background: rgba(253, 203, 110, 0.2); color: #ffeaa7; }
+.tag { font-size: 0.7rem; padding: 0.15rem 0.45rem; border-radius: 4px; background: rgba(255,255,255,0.1); font-weight: 500; }
+.tag-qa { background: rgba(108, 92, 231, 0.25); color: #a29bfe; border: 1px solid rgba(108, 92, 231, 0.4); }
+.tag-va { background: rgba(0, 206, 201, 0.2); color: #81ecec; border: 1px solid rgba(0, 206, 201, 0.4); }
+.tag-lr { background: rgba(253, 203, 110, 0.2); color: #ffeaa7; border: 1px solid rgba(253, 203, 110, 0.4); }
+.tag-custom { background: rgba(255, 107, 129, 0.25); color: #ff6b81; border: 1px solid rgba(255, 107, 129, 0.45); }
+.tag-hours { background: rgba(46, 204, 113, 0.2); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.35); font-size: 0.75rem; font-weight: 600; margin-left: 0.5rem; }
 
 /* ===== MODALS & TOASTS ===== */
 .modal-overlay {

@@ -509,7 +509,7 @@ function buildPlanText(plan) {
 function generatePlanLogic(opts) {
     const plan = [];
 
-    // ── Pre-analysis: understand the full 10-day window ──────────────
+    // ── 1. Pre-Analysis of the 10-day timeline ────────────────────────
     const gapDays = [];
     for (let d = 1; d <= 10; d++) {
         const isMock  = opts.hasMock && d === opts.mockDay;
@@ -518,13 +518,11 @@ function generatePlanLogic(opts) {
     }
     const numGapDays = gapDays.length || 1;
 
-    // Parse special instructions for focus adjustments
-    const si = (opts.specialInstructions || '').toLowerCase();
-    const focusQA = si.includes('focus on qa') || si.includes('weak in qa') || si.includes('more qa') || si.includes('qa weak');
-    const focusLR = si.includes('focus on lr') || si.includes('weak in lr') || si.includes('more lr') || si.includes('lr weak');
-    const focusVA = si.includes('focus on va') || si.includes('weak in va') || si.includes('more va') || si.includes('va weak');
+    // Parse mentor instructions
+    const rawSI = opts.specialInstructions || '';
+    const parsedDirectives = parseMentorSpecialInstructions(rawSI);
 
-    // Smart backlog distribution: spread evenly across ALL gap days
+    // ── 2. Smart Backlog Distribution (1-2 per gap day, max 2.5 hrs) ──
     const backlogPerDay = {};
     if (opts.hasBacklog && opts.backlogCount > 0) {
         let remaining = opts.backlogCount;
@@ -535,7 +533,7 @@ function generatePlanLogic(opts) {
         }
     }
 
-    // Smart assignment distribution: spread across gap days proportionally
+    // ── 3. Smart Assignment Distribution across gap days ──────────────
     const assignPerDay = {};
     if (opts.pendingAssign && opts.pendingAssign.length > 0) {
         opts.pendingAssign.forEach(a => {
@@ -552,7 +550,7 @@ function generatePlanLogic(opts) {
         });
     }
 
-    // Smart module question distribution: spread across gap days
+    // ── 4. Smart Module Questions Distribution across gap days ─────────
     const modulePerDay = {};
     if (opts.pendingModule && opts.pendingModule.length > 0) {
         opts.pendingModule.forEach(m => {
@@ -569,140 +567,231 @@ function generatePlanLogic(opts) {
         });
     }
 
-    // ── Day-by-day plan generation ────────────────────────────────────
-    let lrVaToggle = 'LR';
+    // ── 5. Exact Calendar-Day Alternate LR/VA Tracking ────────────────
+    // Alternates Day 1: LR, Day 2: VA, Day 3: LR, Day 4: VA consistently throughout the 10 days!
+    const getSubjectForDay = (dayNum) => (dayNum % 2 === 1) ? 'LR' : 'VA';
 
+    // ── 6. 10-Day Plan Generation (Calibrated for 5 - 6 Hours Daily) ───
     for (let day = 1; day <= 10; day++) {
         const currentDate = new Date(opts.startDate);
         currentDate.setDate(currentDate.getDate() + (day - 1));
         const tasks = [];
         let type = 'Self Study';
+        let targetHours = '5.5 hrs';
 
         const isMock     = opts.hasMock && day === opts.mockDay;
         const isPreMock  = opts.hasMock && day === opts.mockDay - 1 && day >= 1;
         const isPostMock = opts.hasMock && day === opts.mockDay + 1 && day <= 10;
         const isClass    = !isMock && opts.classDays && opts.classDays.includes(day);
 
-        // ── MOCK DAY ──────────────────────────────────────────────────
+        // Rotating subject for today
+        const alternatingSubject = getSubjectForDay(day);
+
+        // ── A. MOCK TEST DAY (Total: 5.5 - 6.0 hrs) ────────────────────
         if (isMock) {
             type = 'Mock Test Day 🎯';
-            tasks.push({ text: 'Attempt full IPMAT mock under strict exam conditions — no interruptions', tag: 'tag-mock' });
-            tasks.push({ text: 'After mock: record your sectional scores (QA / LR / VA)', tag: 'tag-mock' });
-            tasks.push({ text: 'Identify top 3 weak areas from the mock result — write them down', tag: 'tag-mock' });
-            tasks.push({ text: 'Light reading only: ' + (opts.readingMaterials?.length ? opts.readingMaterials.join(' + ') : 'Newspaper'), tag: 'tag-va' });
+            targetHours = '5.5 hrs';
+            tasks.push({ text: 'Attempt full-length IPMAT Mock Test under strict proctored exam conditions (2.0 hrs)', tag: 'tag-mock' });
+            tasks.push({ text: 'Immediate post-mock sectional score tally & accuracy evaluation for QA, LR, VA (1.0 hr)', tag: 'tag-mock' });
+            tasks.push({ text: 'Initial error logging: categorize errors into conceptual doubt, careless error, or time pressure (1.5 hrs)', tag: 'tag-mock' });
+            tasks.push({ text: 'Review solution videos/explanations for top unattempted high-yield questions (0.5 hr)', tag: 'tag-mock' });
+            if (opts.readingMaterials?.length > 0) {
+                tasks.push({ text: 'Light reading: ' + opts.readingMaterials.join(' + ') + ' for mental reset (0.5 hr)', tag: 'tag-va' });
+            }
 
-        // ── PRE-MOCK — Revision & Rest ────────────────────────────────
+        // ── B. PRE-MOCK DAY — Consolidation & Speed Drill (5.0 - 5.5 hrs) ─
         } else if (isPreMock) {
             type = 'Pre-Mock Revision Day 📋';
-            tasks.push({ text: '⚠️ No new topics today — revision and consolidation only', tag: 'tag-general' });
-            tasks.push({ text: 'QA: Quick revision of all key formulas, shortcuts & trick methods', tag: 'tag-qa' });
-            tasks.push({ text: 'LR: Revisit 1-2 sets from your weakest LR type at full speed', tag: 'tag-lr' });
-            tasks.push({ text: 'VA: Read 1 RC passage + editorial — keep it light', tag: 'tag-va' });
-            tasks.push({ text: '🛌 Sleep on time tonight — 7-8 hours is essential before mock', tag: 'tag-general' });
+            targetHours = '5.0 hrs';
+            tasks.push({ text: 'Comprehensive QA Formula & Concept Sheet revision — Arithmetic & Algebra shortcuts (1.5 hrs)', tag: 'tag-qa' });
+            tasks.push({ text: 'QA Speed Drill: Solve 20 mixed timed questions (1 min/question) (1.0 hr)', tag: 'tag-qa' });
+            tasks.push({ text: 'LR Sectional Drill: Solve 2 full past IPMAT LR sets with countdown timer (1.0 hr)', tag: 'tag-lr' });
+            tasks.push({ text: 'VA Refresher: Solve 2 RC passages + 5 Parajumbles + 5 Grammar/Vocab questions (1.0 hr)', tag: 'tag-va' });
+            tasks.push({ text: 'Strategic mindset: Define mock section-attempt order, target cutoff strategy & sleep early (0.5 hr)', tag: 'tag-general' });
 
-        // ── POST-MOCK — Deep Analysis Day ─────────────────────────────
+        // ── C. POST-MOCK DAY — In-Depth Diagnosis & Gap Filling (5.5 - 6.0 hrs) ──
         } else if (isPostMock) {
             type = 'Post-Mock Analysis Day 🔍';
-            tasks.push({ text: 'Go through every wrong answer in QA — identify: concept gap, silly mistake, or time issue', tag: 'tag-qa' });
-            tasks.push({ text: 'Go through every wrong LR question — identify set type weakness', tag: 'tag-lr' });
-            tasks.push({ text: 'Go through VA errors — RC strategy, vocab, or parajumble weakness?', tag: 'tag-va' });
-            tasks.push({ text: 'Note the weak chapters/topics from QA for next study cycle', tag: 'tag-qa' });
-            tasks.push({ text: 'Daily reading: ' + (opts.readingMaterials?.length ? opts.readingMaterials.join(' + ') : 'Newspaper'), tag: 'tag-va' });
+            targetHours = '5.5 hrs';
+            tasks.push({ text: 'Deep QA Diagnostic: Re-solve every incorrect & unattempted math problem without timer (2.0 hrs)', tag: 'tag-qa' });
+            tasks.push({ text: 'LR Set Deconstruction: Analyze why sets were slow or missed and map alternate puzzle approaches (1.5 hrs)', tag: 'tag-lr' });
+            tasks.push({ text: 'VA Error Review: Re-read RC passages where mistakes happened & eliminate trap options (1.0 hr)', tag: 'tag-va' });
+            tasks.push({ text: 'Update Mistake Notebook & document action points for next 10-day cycle (0.5 hr)', tag: 'tag-general' });
+            if (opts.readingMaterials?.length > 0) {
+                tasks.push({ text: 'Daily Reading: ' + opts.readingMaterials.join(' + ') + ' (0.5 hr)', tag: 'tag-va' });
+            }
 
-        // ── CLASS DAY ─────────────────────────────────────────────────
+        // ── D. CLASS DAY (Total: 5.5 - 6.0 hrs: 2 hrs live class + 3.5-4 hrs self-prep) ──
         } else if (isClass) {
             type = 'Class Day 🎓';
-            tasks.push({ text: 'Attend live iquanta class — active note-taking, mark doubts for later', tag: 'tag-qa' });
-            tasks.push({ text: 'After class (within 1-2 hours): revise notes while memory is fresh (15-20 mins)', tag: 'tag-qa' });
-            tasks.push({ text: 'QA: Solve 15-20 questions from today\'s class topic for immediate application', tag: 'tag-qa' });
-            if (focusLR) tasks.push({ text: 'LR: 1 quick set from weak LR type (focus area this cycle)', tag: 'tag-lr' });
-            if (focusVA) tasks.push({ text: 'VA: 1 RC passage (focus area this cycle)', tag: 'tag-va' });
-            tasks.push({ text: 'Daily reading: ' + (opts.readingMaterials?.length ? opts.readingMaterials.join(' + ') : 'Newspaper + Editorial') + ' (30 mins)', tag: 'tag-va' });
+            targetHours = '5.5 hrs';
+            // Live class block
+            tasks.push({ text: 'Attend Live iQuanta Class — active engagement & live doubt asking (2.0 hrs)', tag: 'tag-qa' });
+            tasks.push({ text: 'Post-Class Concept Review: Synthesize lecture notes & formula derivations (0.5 hr)', tag: 'tag-qa' });
+            
+            // QA practice based on setting
+            if (opts.qaFreq === 'daily' || parsedDirectives.focusQA) {
+                const qaCount = parsedDirectives.focusQA ? 30 : 25;
+                tasks.push({ text: `QA Drill: Solve ${qaCount} chapterwise questions from today's lecture topic (1.5 hrs)`, tag: 'tag-qa' });
+            } else {
+                tasks.push({ text: 'QA Application: Solve 15 targeted practice problems from class topic (1.0 hr)', tag: 'tag-qa' });
+            }
 
-        // ── GAP DAY — Full Self Study ─────────────────────────────────
+            // Alternating LR / VA on class days
+            const doLRToday = (opts.lrFreq === 'daily') || (opts.lrFreq === 'alternate' && alternatingSubject === 'LR') || parsedDirectives.focusLR;
+            const doVAToday = (opts.vaFreq === 'daily') || (opts.vaFreq === 'alternate' && alternatingSubject === 'VA') || parsedDirectives.focusVA;
+
+            if (doLRToday && !doVAToday) {
+                tasks.push({ text: 'LR Practice: Solve 2 standard IPMAT puzzle sets with strict stopwatch timing (1.0 hr)', tag: 'tag-lr' });
+            } else if (doVAToday && !doLRToday) {
+                tasks.push({ text: 'VA Practice: 1 RC passage + 10 mixed questions (Parajumbles, Sentence Completion) (1.0 hr)', tag: 'tag-va' });
+            } else if (doLRToday && doVAToday) {
+                tasks.push({ text: 'LR Drill: 1 timed puzzle set (0.5 hr)', tag: 'tag-lr' });
+                tasks.push({ text: 'VA Drill: 1 timed RC passage + 5 vocab exercises (0.5 hr)', tag: 'tag-va' });
+            }
+
+            // Daily VA reading habit
+            if (opts.readingMaterials?.length > 0) {
+                tasks.push({ text: 'Reading Habit: ' + opts.readingMaterials.join(' + ') + ' + Vocabulary flashcards (0.5 hr)', tag: 'tag-va' });
+            }
+
+        // ── E. GAP DAY — Full Self-Study & Consolidation (Total: 5.5 - 6.0 hrs) ──
         } else {
             type = 'Gap Day (Self Study) 📖';
+            targetHours = '6.0 hrs';
 
-            // Priority 1: Backlog lectures
+            // 1. Backlog if any (Takes priority: ~1.5 - 2.0 hrs)
             if (backlogPerDay[day]) {
-                tasks.push({ text: `📌 Backlog: Watch ${backlogPerDay[day]} pending lecture(s) from iquanta portal — must complete`, tag: 'tag-general' });
+                tasks.push({
+                    text: `📌 Backlog Priority: Watch & take thorough notes for ${backlogPerDay[day]} pending lecture(s) on portal (1.5 hrs)`,
+                    tag: 'tag-general'
+                });
             }
 
-            // Priority 2: Module questions for today
-            if (modulePerDay[day]) {
+            // 2. Pending Module Questions (Takes: ~1.0 hr)
+            if (modulePerDay[day] && modulePerDay[day].length > 0) {
                 modulePerDay[day].forEach(m => {
-                    tasks.push({ text: `${m.subject}: Complete ${m.count} pending module question(s) from portal`, tag: `tag-${m.subject.toLowerCase()}` });
+                    tasks.push({
+                        text: `${m.subject} Module: Complete ${m.count} pending module questions from portal workbook (1.0 hr)`,
+                        tag: `tag-${m.subject.toLowerCase()}`
+                    });
                 });
             }
 
-            // Priority 3: Assignments for today
-            if (assignPerDay[day]) {
+            // 3. Pending Assignments (Takes: ~0.75 - 1.0 hr)
+            if (assignPerDay[day] && assignPerDay[day].length > 0) {
                 assignPerDay[day].forEach(a => {
-                    tasks.push({ text: `${a.subject}: Complete ${a.count} pending assignment question(s) from portal`, tag: `tag-${a.subject.toLowerCase()}` });
+                    tasks.push({
+                        text: `${a.subject} Assignment: Finish ${a.count} pending chapterwise assignment questions (0.75 hr)`,
+                        tag: `tag-${a.subject.toLowerCase()}`
+                    });
                 });
             }
 
-            // QA Practice
-            const doQA = focusQA ? true : (opts.qaFreq === 'daily' || gapDays.indexOf(day) % 2 === 0);
-            if (doQA || opts.qaFreq === 'daily') {
-                const qCount = focusQA ? 35 : 25;
-                tasks.push({ text: `QA: Solve ${qCount} practice questions — focus on accuracy first, then speed`, tag: 'tag-qa' });
+            // 4. Core QA Practice (Takes: 1.5 - 2.0 hrs)
+            const isDailyQA = (opts.qaFreq === 'daily') || parsedDirectives.focusQA;
+            const qaQuestions = parsedDirectives.focusQA ? 35 : 30;
+            if (isDailyQA || (!backlogPerDay[day] && day % 2 === 1)) {
+                tasks.push({
+                    text: `QA Problem Solving: Solve ${qaQuestions} level-2 & level-3 questions (mix of Arithmetic & Algebra) (1.75 hrs)`,
+                    tag: 'tag-qa'
+                });
+            } else {
+                tasks.push({
+                    text: 'QA Concept Revision & Practice: 20 revision problems covering previously completed chapters (1.25 hrs)',
+                    tag: 'tag-qa'
+                });
             }
 
-            // LR / VA (alternating, or daily if frequency set / focus)
-            const doLR = focusLR ? true : (opts.lrFreq === 'daily' || lrVaToggle === 'LR');
-            const doVA = focusVA ? true : (opts.vaFreq === 'daily' || lrVaToggle === 'VA');
+            // 5. Alternate LR or VA (Takes: 1.25 - 1.5 hrs)
+            const doLRToday = (opts.lrFreq === 'daily') || (opts.lrFreq === 'alternate' && alternatingSubject === 'LR') || parsedDirectives.focusLR;
+            const doVAToday = (opts.vaFreq === 'daily') || (opts.vaFreq === 'alternate' && alternatingSubject === 'VA') || parsedDirectives.focusVA;
 
-            if (doLR) {
-                tasks.push({ text: 'LR: Solve 1-2 full LR sets under timed conditions (max 15 mins/set)', tag: 'tag-lr' });
-            }
-            if (doVA) {
-                tasks.push({ text: 'VA: 1 RC passage (timed) + 5 parajumbles + 5 odd-one-out', tag: 'tag-va' });
+            if (doLRToday && !doVAToday) {
+                tasks.push({
+                    text: 'LR Timed Workout: Solve 3 diverse sets (Arrangements, Syllogisms, Critical Reasoning) (1.25 hrs)',
+                    tag: 'tag-lr'
+                });
+            } else if (doVAToday && !doLRToday) {
+                tasks.push({
+                    text: 'VA Intensive: 2 RC passages (timed) + 8 Parajumbles + 5 Sentence Completion drills (1.25 hrs)',
+                    tag: 'tag-va'
+                });
+            } else if (doLRToday && doVAToday) {
+                tasks.push({ text: 'LR Drill: 2 timed puzzle sets (0.75 hr)', tag: 'tag-lr' });
+                tasks.push({ text: 'VA Drill: 1 RC passage + 10 Parajumbles & Vocab (0.75 hr)', tag: 'tag-va' });
             }
 
-            // Daily reading — always included
+            // 6. Daily Reading & Vocabulary
             if (opts.readingMaterials?.length > 0) {
-                tasks.push({ text: 'Daily reading: ' + opts.readingMaterials.join(' + ') + ' (30 mins minimum — builds VA vocabulary)', tag: 'tag-va' });
+                tasks.push({
+                    text: 'Active Reading: ' + opts.readingMaterials.join(' + ') + ' + Note down 5 new words with root meanings (0.5 hr)',
+                    tag: 'tag-va'
+                });
             }
-
-            lrVaToggle = lrVaToggle === 'LR' ? 'VA' : 'LR';
         }
 
-        plan.push({ day, date: formatDate(currentDate.toISOString().split('T')[0]), type, tasks });
+        // ── F. Dynamic Custom Instructions Integration ───────────────
+        // Embed mentor's specific guidance directly into the plan
+        if (parsedDirectives.customTasks.length > 0) {
+            // Distribute custom instructions intelligently across appropriate days
+            parsedDirectives.customTasks.forEach((customTask, cIdx) => {
+                if ((day % 3 === (cIdx + 1) % 3) || (day === 1 && cIdx === 0)) {
+                    tasks.push({ text: `⚡ Mentor Instruction: ${customTask}`, tag: 'tag-custom' });
+                }
+            });
+        }
+
+        plan.push({
+            day,
+            date: formatDate(currentDate.toISOString().split('T')[0]),
+            type,
+            targetHours,
+            tasks
+        });
     }
+
     return plan;
 }
 
-function refineSpecialInstructions(rawText) {
-    if (!rawText) return [];
-    // Split by newlines, periods, commas, or semicolons if long
-    let lines = rawText.split(/\n+/).map(s => s.trim()).filter(Boolean);
-    
-    // If it's a single block of text, try splitting by sentences
-    if (lines.length === 1 && lines[0].length > 40) {
-        lines = lines[0].split(/(?<=[.?!])\s+/).map(s => s.trim()).filter(Boolean);
+// Helper to parse mentor's instructions for focus areas and custom tasks
+function parseMentorSpecialInstructions(rawText) {
+    if (!rawText || !rawText.trim()) {
+        return { focusQA: false, focusLR: false, focusVA: false, customTasks: [] };
     }
 
-    return lines.map(line => {
-        // Capitalize first letter and format cleanly
-        let clean = line.replace(/^[•\-\*\d\.\)\s]+/, ''); // remove bullet symbols if user typed them
-        return clean.charAt(0).toUpperCase() + clean.slice(1);
-    });
+    const lower = rawText.toLowerCase();
+    const focusQA = lower.includes('qa') && (lower.includes('focus') || lower.includes('weak') || lower.includes('more') || lower.includes('daily'));
+    const focusLR = lower.includes('lr') && (lower.includes('focus') || lower.includes('weak') || lower.includes('more') || lower.includes('daily'));
+    const focusVA = lower.includes('va') && (lower.includes('focus') || lower.includes('weak') || lower.includes('more') || lower.includes('daily'));
+
+    // Split sentences or points into clean action directives
+    const lines = rawText
+        .split(/[\n;•]+/)
+        .map(s => s.trim().replace(/^[-*0-9.)\s]+/, ''))
+        .filter(s => s.length > 4);
+
+    return {
+        focusQA,
+        focusLR,
+        focusVA,
+        customTasks: lines
+    };
 }
 
 function renderPlan(plan) {
     document.getElementById('plan-placeholder').classList.add('hidden');
     document.getElementById('plan-result').classList.remove('hidden');
-    
+
     const container = document.getElementById('calendar-container');
     container.innerHTML = '';
-    
-    window.currentGeneratedPlan = plan; // Save for copy
+
+    window.currentGeneratedPlan = plan; // Save for copy & exports
 
     plan.forEach(d => {
         let typeClass = '';
-        if(d.type === 'Mock Test') typeClass = 'mock';
-        if(d.type === 'Gap Day') typeClass = 'gap';
+        if (d.type.includes('Mock')) typeClass = 'mock';
+        if (d.type.includes('Gap')) typeClass = 'gap';
 
         const tasksHtml = d.tasks.map(t => `
             <li><span class="tag ${t.tag}">${t.tag.replace('tag-','').toUpperCase()}</span> ${t.text}</li>
@@ -712,7 +801,10 @@ function renderPlan(plan) {
             <div class="day-card ${typeClass}">
                 <div class="day-header">
                     <span class="day-title">Day ${d.day} <span class="text-muted font-normal ml-2">(${d.date})</span></span>
-                    <span class="badge" style="background: rgba(255,255,255,0.1)">${d.type}</span>
+                    <div>
+                        <span class="tag tag-hours">⏱️ ${d.targetHours || '5.5 hrs'}</span>
+                        <span class="badge" style="background: rgba(255,255,255,0.1); margin-left: 0.5rem;">${d.type}</span>
+                    </div>
                 </div>
                 <ul class="task-list mt-2">
                     ${tasksHtml}
@@ -724,24 +816,24 @@ function renderPlan(plan) {
 
 function copyPlanToClipboard() {
     if (!window.currentGeneratedPlan) return;
-    
-    let text = "🎯 *YOUR 10-DAY IPMAT STUDY PLAN* 🎯\n";
-    text += "───────────────────────────────\n\n";
+
+    let text = "🎯 *YOUR 10-DAY IPMAT MENTORSHIP PLAN (5-6 HRS/DAY)* 🎯\n";
+    text += "────────────────────────────────────────\n\n";
 
     window.currentGeneratedPlan.forEach(d => {
-        const typeEmoji = d.type === 'Mock Test' ? '📝' : (d.type === 'Class Day' ? '🎓' : '📖');
-        text += `📅 *Day ${d.day} (${d.date})* — ${typeEmoji} _${d.type}_\n`;
+        const typeEmoji = d.type.includes('Mock') ? '📝' : (d.type.includes('Class') ? '🎓' : '📖');
+        text += `📅 *Day ${d.day} (${d.date})* — ${typeEmoji} _${d.type}_ [⏱️ ${d.targetHours || '5.5 hrs'}]\n`;
         d.tasks.forEach(t => {
             text += `  • ${t.text}\n`;
         });
         text += '\n';
     });
 
-    text += "───────────────────────────────\n";
-    text += "💪 *Stay consistent & reach out if you have doubts!*";
+    text += "────────────────────────────────────────\n";
+    text += "💪 *Consistency is key! Put in 5-6 hours daily and track your errors diligently.*";
 
     navigator.clipboard.writeText(text).then(() => {
-        showToast('Formatted plan copied for WhatsApp!', 'success');
+        showToast('Formatted 5-6 hr plan copied for WhatsApp!', 'success');
     });
 }
 
@@ -752,13 +844,13 @@ function exportPlanToPdf() {
 
 async function emailPlanToStudent() {
     if (!window.currentGeneratedPlan) return;
-    
+
     const studentIdx = document.getElementById('plan-student')?.value;
     if (studentIdx === "" || studentIdx === undefined) {
         showToast('Please select a student from the dropdown first to send an email.', 'error');
         return;
     }
-    
+
     const student = STUDENTS[studentIdx];
     if (!student || !student.email) {
         showToast('Student email not found.', 'error');
@@ -768,10 +860,16 @@ async function emailPlanToStudent() {
     const btn = document.getElementById('btn-email-plan');
     btn.disabled = true; btn.textContent = 'Sending...';
 
+    // Convert current plan directly into high quality HTML table with 5-6 hr breakdown
+    const planHtml = formatPlanAsHtml(window.currentGeneratedPlan);
+
     const res = await apiPost({
         action: 'generatePlan',
         studentName: student.name,
-        options: { studentName: student.name }
+        options: {
+            studentName: student.name,
+            customHtmlPlan: planHtml
+        }
     });
 
     btn.disabled = false; btn.textContent = '✉️ Email to Student';
@@ -781,6 +879,30 @@ async function emailPlanToStudent() {
     } else {
         showToast('Email sending failed.', 'error');
     }
+}
+
+function formatPlanAsHtml(plan) {
+    let html = '<table style="width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; font-size: 14px;">';
+    html += '<tr style="background-color: #4A148C; color: white;"><th style="padding: 10px; border: 1px solid #ddd; width: 25%;">Day & Target</th><th style="padding: 10px; border: 1px solid #ddd;">Daily Study Schedule (5-6 Hours)</th></tr>';
+
+    plan.forEach((day, i) => {
+        const bg = i % 2 === 0 ? '#F9F9FF' : '#ffffff';
+        html += `<tr style="background-color: ${bg};">`;
+        html += `<td style="padding: 12px; border: 1px solid #ddd; vertical-align: top;">
+                    <strong>Day ${day.day}</strong><br>
+                    ${day.date}<br>
+                    <span style="display:inline-block; padding: 2px 6px; background:#6C5CE7; color:white; border-radius:4px; font-size:12px; margin-top:4px;">${day.type}</span><br>
+                    <small style="color:#27ae60; font-weight:bold;">Target: ${day.targetHours || '5.5 hrs'}</small>
+                 </td>`;
+        html += '<td style="padding: 12px; border: 1px solid #ddd; vertical-align: top;"><ul style="margin: 0; padding-left: 18px; line-height: 1.6;">';
+        day.tasks.forEach(t => {
+            html += `<li>${t.text}</li>`;
+        });
+        html += '</ul></td></tr>';
+    });
+
+    html += '</table>';
+    return html;
 }
 
 
